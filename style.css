@@ -1,0 +1,7 @@
+a:after {
+    content: attr(href);
+}
+
+canvas {
+    border: #57606f 1px solid;
+}
