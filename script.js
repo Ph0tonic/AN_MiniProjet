@@ -1,7 +1,10 @@
-
+//TODO For test
+let canvasSimulator = null;
 $(document).ready(function(){
-  let canvasSimulator = new CanvasSimulator("ants-area");
+   canvasSimulator = new CanvasSimulator("ants-area");
 })
+
+let debug = false;
 
 class MapRemember{
   constructor(map){
@@ -21,20 +24,122 @@ class MapRemember{
     }
   }
 
-  addPos(x, y){
-    this.data[x][y]=true;
+  addPos(i, j){
+    this.data[i][j]=true;
+  }
+
+  distTo(coord1,coord2){
+    return Math.sqrt((coord1[0]-coord2[0])*(coord1[0]-coord2[0])+(coord1[1]-coord2[1])*(coord1[1]-coord2[1]));
+  }
+
+  coordToId(coord){
+    return this.map.width*coord[0]+coord[1];
+  }
+
+  idToCoord(id){
+    return [id/this.map.width,id%this.map.width];
+  }
+
+  MarkWayToNest(i,j){
+    let nodeToEvalue = [];
+    let evaluatedNode = new Map();
+    let visitedNode = new Set();
+
+    let destCoordId = this.coordToId([i,j]);
+
+    let nestCoord = [50,50];
+    let nestCoordId = this.coordToId(nestCoord);
+
+    let currentNode = null;
+    let currentCoord = nestCoord;
+
+    let estimatedNode = new EstimatedNode(nestCoord,nestCoord,0);
+
+    nodeToEvalue.push(estimatedNode);
+
+    let end = false;
+    while(!end){
+      //Sort nodeToEvaluate
+      nodeToEvalue.sort(function(a, b){return a.cost - b.cost});
+      if(nodeToEvalue.length>1){
+        console.log("Sort check")
+        console.log(nodeToEvalue)
+      }
+
+      //Take the first one and Remove it from the list
+      if(debug){
+        console.log(nodeToEvalue.length);
+      }
+      currentNode = nodeToEvalue.shift();
+      if(debug){
+        console.log(nodeToEvalue.length);
+      }
+      currentCoord = currentNode.coord;
+      //Add it to the evaluated node
+      evaluatedNode.set(this.coordToId(currentCoord), currentNode);
+
+      //Manage this node :
+      //look at the neightbor nodes
+      for(let i=-1;i<=1;++i){
+        for(let j=-1;j<=1;++j){
+          if(this.map.checkCoord([currentCoord[0]+i,currentCoord[1]+j])){ //Check if the node is valid
+            if(this.data[currentCoord[0]+i][currentCoord[1]+j] == true  && !visitedNode.has(this.coordToId([currentCoord[0]+i,currentCoord[1]+j]))){ //Check if the node is known and not already been evaluated
+              nodeToEvalue.push(new EstimatedNode([currentCoord[0]+i,currentCoord[1]+j],currentCoord,currentNode.cost+1)); //Add the node to the node we have to evaluate
+              visitedNode.add(this.coordToId([currentCoord[0]+i,currentCoord[1]+j]));
+            }
+          }
+        }
+      }
+
+      //Check if we found our destination
+      for(let i=0;i<nodeToEvalue.length;++i){
+        if(this.coordToId(nodeToEvalue[i].coord) == destCoordId){
+          end = true;
+          evaluatedNode.set(this.coordToId(nodeToEvalue[i].coord),nodeToEvalue[i]); //Add the node to the evaluate node to be able to find is root
+
+          i=nodeToEvalue.length; //Founded, end of the loop
+        }
+      }
+    }
+
+    //return the path
+    let finalPath = [];
+
+    let tempNode = evaluatedNode.get(destCoordId);
+    while(this.coordToId(tempNode.coord) != this.coordToId(tempNode.previous)){ //only the first node has himself as his previous coord
+      finalPath.push(tempNode.coord);
+      tempNode = evaluatedNode.get(this.coordToId(tempNode.previous));
+    }
+    return finalPath;
+  }
+}
+
+class EstimatedNode{
+  /**
+   * coord -> coordonées du point
+   * previous -> previous point to get to this point
+   * cost -> cost to get to this points
+   */
+  constructor(coord, previous, cost){
+    this.coord = coord;
+    this.previous = previous;
+    this.cost = cost;
   }
 }
 
 class Ant{
-  constructor(map, x, y){
-    this.x = x;
-    this.y = y;
+  constructor(map, i, j){
+    this.i = i;
+    this.j = j;
     this.map = map;
+    this.map.cells[i][j].ant = this;
+
     this.food = 0;
-    this.mapRemember = new MapRemember(this.map);
-    this.map.cells[x][y].ant = this;
     this.orientation = Math.random() * 360;
+    this.calculated=false;
+
+    this.mapRemember = new MapRemember(this.map);
+    this.mapRemember.addPos(this.i,this.j);
   }
 
   move(){
@@ -42,32 +147,49 @@ class Ant{
     let coord = null;
     if(this.food>0){
       coord = this._moveBackToNest();
-    }else if(this.map.cells[this.x][this.y].pheromone > 0){
+      this.map.cells[this.i][this.j].pheromone = 1;
+    }/*else if(this.map.cells[this.x][this.y].pheromone > 0){
       coord = this._moveFolowingPheromones();
-    }else{
+    }*/else{
       coord = this._moveRandomly();
     }
 
-    coord = this._moveRandomly();
-
     //Check if dest is free
     if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
-      this.map.cells[this.x][this.y].ant = null;
-      this.x = coord[0];
-      this.y = coord[1];
-      this.mapRemember.addPos(this.x,this.y);
-      this.map.cells[this.x][this.y].ant = this;
+      //TODO clean
+      this.map.cells[this.i][this.j].ant = null;
+      this.i = coord[0];
+      this.j = coord[1];
+
+      this.mapRemember.addPos(this.i,this.j);
+      this.map.cells[this.i][this.j].ant = this;
+
+      //Update dependingt of cells' content
+      if(this.map.cells[this.i][this.j].food>0){
+        this.map.cells[this.i][this.j].food = 0;
+        this.food = 1;
+      }
+    }
+  }
+
+  _moveBackToNest(){ //Move back to the nest using her knowledges of the terrain
+
+    if(this.calculated != true){ //Calc shortest way to home with our knowledges, just one time
+      this.calculated=true;
+      this.pathToNest = this.mapRemember.MarkWayToNest(this.i,this.j);
     }
 
-    return;
+    if(this.pathToNest.length == 1){//Last point before the nest
+      this.food = 0;
+      this.calculated=false;
+      this.pathToNest = null;
+    }
+    let coord = this.pathToNest.shift();
 
+    return coord;
   }
 
-  _moveBackToNest(){
-    //TODO
-  }
-
-  _moveRandomly(){
+  _moveRandomly(){ //Move randomly
     let angle = 1.;
     this.orientation += Math.random()*angle-angle/2; // Variance of rotation of the ant
     return this.getCoordsFromOrientation();
@@ -78,7 +200,7 @@ class Ant{
   }
 
   getCoordsFromOrientation(){
-    return this.map.boundCoord([this.x+Math.round(Math.cos(this.orientation)),this.y+Math.round(Math.sin(this.orientation))]);
+    return this.map.boundCoord([this.i+Math.round(Math.cos(this.orientation)),this.j+Math.round(Math.sin(this.orientation))]);
   }
 
   hasFood(){
@@ -104,6 +226,9 @@ class Cell{
       }
       return "black";
     }
+    if(this.food>0){
+      return "rgba(255,0,0,"+this.food+")";
+    }
     if(this.pheromone>0){
       return "red";
     }
@@ -111,13 +236,13 @@ class Cell{
   }
 }
 
-class Map{
+class MapArea{
   constructor(width, height, ratio){
     this.ratio = ratio;
     this.width = width;
     this.height = height;
     this.init();
-    this.addFood(200, 25, 75, 75);
+    this.addFood(10, 75, 75);
   }
 
   init(){
@@ -131,15 +256,30 @@ class Map{
   }
 
   boundCoord(coord){
-    if(coord[0]>=this.width)coord[0]=this.width-1;
+    if(coord[0]>=this.height)coord[0]=this.height-1;
     if(coord[0]<0)coord[0]=0;
-    if(coord[1]>=this.height)coord[1]=this.height-1;
+    if(coord[1]>=this.width)coord[1]=this.width-1;
     if(coord[1]<0)coord[1]=0;
     return coord;
   }
 
-  addFood(quantity, radius, x, y){
-    this.cells[x][y].food = quantity;
+  checkCoord(coord){
+    return !( coord[0]>=this.height ||
+              coord[0]<0 ||
+              coord[1]>=this.width ||
+              coord[1]<0);
+  }
+
+  addFood(radius, ii, jj){
+    console.log("Food addition")
+    for(let i=-radius;i<radius;++i){
+      for(let j=-radius;j<radius;++j){
+        let dist = Math.sqrt(i*i+j*j);
+        if(dist<radius && this.checkCoord([ii+i,jj+j])){
+          this.cells[ii+i][jj+j].food = Math.pow(1/(dist+0.1),0.4); // Avoid infinity
+        }
+      }
+    }
   }
 
   draw(context){
@@ -166,7 +306,7 @@ class CanvasSimulator{
     this.height=100;
     this.ratio=4;
     this.intervalMS = 50;
-    this.map = new Map(this.width, this.height, this.ratio);
+    this.map = new MapArea(this.width, this.height, this.ratio);
 
     this.createCanvas(divId);
 
