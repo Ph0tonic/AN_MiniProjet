@@ -47,7 +47,7 @@ class MapRemember{
 
     let destCoordId = this.coordToId([i,j]);
 
-    let nestCoord = [50,50];
+    let nestCoord = [10,10];
     let nestCoordId = this.coordToId(nestCoord);
 
     let currentNode = null;
@@ -61,20 +61,11 @@ class MapRemember{
     while(!end){
       //Sort nodeToEvaluate
       nodeToEvalue.sort(function(a, b){return a.cost - b.cost});
-      if(nodeToEvalue.length>1){
-        console.log("Sort check")
-        console.log(nodeToEvalue)
-      }
 
       //Take the first one and Remove it from the list
-      if(debug){
-        console.log(nodeToEvalue.length);
-      }
       currentNode = nodeToEvalue.shift();
-      if(debug){
-        console.log(nodeToEvalue.length);
-      }
       currentCoord = currentNode.coord;
+
       //Add it to the evaluated node
       evaluatedNode.set(this.coordToId(currentCoord), currentNode);
 
@@ -140,35 +131,52 @@ class Ant{
 
     this.mapRemember = new MapRemember(this.map);
     this.mapRemember.addPos(this.i,this.j);
+    this.deltaI=0;
+    this.deltaJ=0;
   }
 
   move(){
-    //TODO move ant
-    let coord = null;
+    let coord = this.checkForFood();
     if(this.food>0){
-      coord = this._moveBackToNest();
-      this.map.cells[this.i][this.j].pheromone = 1;
-    }/*else if(this.map.cells[this.x][this.y].pheromone > 0){
-      coord = this._moveFolowingPheromones();
-    }*/else{
-      coord = this._moveRandomly();
+      coord = this._moveBackToNest2();
+      if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
+        this.map.cells[coord[0]][coord[1]].pheromone = 1;
+        this.map.cells[coord[0]][coord[1]].pheromoneCoord = [this.i,this.j];
+      }
+    }else if(coord == false){
+      if(this.map.cells[this.i][this.j].pheromone > 0){
+        coord = this.map.cells[this.i][this.j].pheromoneCoord;
+      }else{
+        coord = this._moveRandomly();
+      }
     }
 
     //Check if dest is free
     if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
       //TODO clean
       this.map.cells[this.i][this.j].ant = null;
+      this.deltaI += this.i - coord[0];
+      this.deltaJ += this.j - coord[1];
       this.i = coord[0];
       this.j = coord[1];
 
       this.mapRemember.addPos(this.i,this.j);
       this.map.cells[this.i][this.j].ant = this;
 
-      //Update dependingt of cells' content
+      //Update depending of cells' content
       if(this.map.cells[this.i][this.j].food>0){
         this.map.cells[this.i][this.j].food = 0;
         this.food = 1;
       }
+    }else{
+      if(this.food>0){
+        console.log("STUCK : moving to the nest")
+      }else if(this.map.cells[this.i][this.j].pheromone > 0){
+        console.log("STUCK : folowing pheromones")
+      }else{
+        //console.log("STUCK : random")
+      }
+
     }
   }
 
@@ -177,26 +185,58 @@ class Ant{
     if(this.calculated != true){ //Calc shortest way to home with our knowledges, just one time
       this.calculated=true;
       this.pathToNest = this.mapRemember.MarkWayToNest(this.i,this.j);
+      this.pathToNest.shift();
     }
 
-    if(this.pathToNest.length == 1){//Last point before the nest
+    let coord = this.pathToNest.shift();
+    if(this.map.cells[coord[0]][coord[1]].hasAnt()){
+      this.pathToNest.unshift(coord);
+    }
+
+    if(this.pathToNest.length == 0){//Last point before the nest
       this.food = 0;
       this.calculated=false;
-      this.pathToNest = null;
+      this.pathToNest=null;
     }
-    let coord = this.pathToNest.shift();
 
     return coord;
   }
 
+  _moveBackToNest2(){ //Move back to the nest using her knowledges of the terrain
+    let di = this.deltaI;
+    let dj = this.deltaJ;
+    this.orientation = Math.atan2(dj,di);
+    let angle = 1.;
+    this.orientation += Math.random()*angle-angle/2; // Variance of rotation of the ant
+
+
+    //let x = this.i+(this.deltaI!=0?this.deltaI/Math.abs(this.deltaI):0);
+    //let y = this.j+(this.deltaJ!=0?this.deltaJ/Math.abs(this.deltaJ):0);
+    return this.getCoordsFromOrientation();
+  }
+
+  checkForFood(){
+    for(let i=-1;i<=1;++i){
+      for(let j=-1;j<=1;++j){
+        if(this.map.checkCoord([i+this.i,j+this.j])){
+          if(this.map.cells[this.i+i][this.j+j].hasFood()){
+            return [this.i+i,this.j+j];
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   _moveRandomly(){ //Move randomly
     let angle = 1.;
+
     this.orientation += Math.random()*angle-angle/2; // Variance of rotation of the ant
     return this.getCoordsFromOrientation();
   }
 
   _moveFolowingPheromones(){
-    //TODO
+
   }
 
   getCoordsFromOrientation(){
@@ -213,10 +253,15 @@ class Cell{
     this.ant = null;
     this.food = 0;
     this.pheromone = 0;
+    this.pheromoneCoord = null;
   }
 
   hasAnt(){
     return !(this.ant == null);
+  }
+
+  hasFood(){
+    return this.food > 0;
   }
 
   getColor(){
@@ -230,7 +275,7 @@ class Cell{
       return "rgba(255,0,0,"+this.food+")";
     }
     if(this.pheromone>0){
-      return "red";
+      return "rgba(0,0,255,"+this.pheromone+")";
     }
     return false;
   }
@@ -298,6 +343,17 @@ class MapArea{
     }
     //context.fill();
   }
+
+  pheromoneUpdate(){
+    for(let i=0;i<this.height;++i){
+      for(let j=0;j<this.width;++j){
+        this.cells[i][j].pheromone *= 0.96;
+        if(this.cells[i][j].pheromone<0.05){
+          this.cells[i][j].pheromone = 0;
+        }
+      }
+    }
+  }
 }
 
 class CanvasSimulator{
@@ -311,8 +367,22 @@ class CanvasSimulator{
     this.createCanvas(divId);
 
     //Réaffichage de la carte
-    setInterval(this.moveAndDraw.bind(this), this.intervalMS);
-    this.ant = new Ant(this.map,50,50);
+    this.antCreation = setInterval(this.antCreate.bind(this), this.intervalMS*2);
+    setInterval(this.draw.bind(this), this.intervalMS);
+    setInterval(this.map.pheromoneUpdate.bind(this.map), this.intervalMS);
+
+    this.ants = [];
+    this.antMax = 50;
+  }
+
+  antCreate(){
+    if(this.ants.length < this.antMax){
+      let ant = new Ant(this.map,10,10);
+      this.ants.push(ant);
+      setInterval(ant.move.bind(ant),this.intervalMS);
+    }else{
+      clearInterval(this.antCreation);
+    }
   }
 
   createCanvas(divId){
@@ -328,8 +398,11 @@ class CanvasSimulator{
 
   }
 
-  moveAndDraw(){
-    this.ant.move();
+  draw(){
     this.map.draw(this.context);
+  }
+
+  moveAnts(){
+    this.ant.move();
   }
 }
