@@ -153,6 +153,10 @@ class Ant{
 
     //Check if dest is free
     if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
+      if(coord[0]==10 && coord[1]==10){
+        this.food = 0;
+      }
+
       //TODO clean
       this.map.cells[this.i][this.j].ant = null;
       this.deltaI += this.i - coord[0];
@@ -198,20 +202,22 @@ class Ant{
       this.calculated=false;
       this.pathToNest=null;
     }
-
     return coord;
   }
 
-  _moveBackToNest2(){ //Move back to the nest using her knowledges of the terrain
+  _moveBackToNest2(){ //Move back to the nest using her knowledges of their moves
     let di = this.deltaI;
     let dj = this.deltaJ;
     this.orientation = Math.atan2(dj,di);
+
     let angle = 1.;
     this.orientation += Math.random()*angle-angle/2; // Variance of rotation of the ant
-
+    //console.log(this.orientation)
 
     //let x = this.i+(this.deltaI!=0?this.deltaI/Math.abs(this.deltaI):0);
     //let y = this.j+(this.deltaJ!=0?this.deltaJ/Math.abs(this.deltaJ):0);
+
+    //console.log(this.getCoordsFromOrientation())
     return this.getCoordsFromOrientation();
   }
 
