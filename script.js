@@ -4,7 +4,16 @@ $(document).ready(function(){
   canvasSimulator = new CanvasSimulator("ants-area");
   $('#start').click(function(){
     canvasSimulator.start();
-  })
+  });
+  $('#break').click(function(){
+    canvasSimulator.stop();
+  });
+  $('#resume').click(function(){
+    canvasSimulator.resume();
+  });
+  $('#reset').click(function(){
+    canvasSimulator.reset();
+  });
 })
 
 class MapRemember{
@@ -125,6 +134,7 @@ class Ant{
     this.i = i;
     this.j = j;
     this.map = map;
+    this.view = 3;
     this.map.cells[i][j].ant = this;
     this.stuck = false;
 
@@ -158,23 +168,25 @@ class Ant{
     }
 
     //Check if dest is free
-    if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
+    if(!this.map.cells[coord[0]][coord[1]].isObstacle()){
+      if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
 
-      this.map.cells[this.i][this.j].ant = null;
-      this._moveAnt(coord[0], coord[1]);
-      this.map.cells[this.i][this.j].ant = this;
-    }else{
-      if(this.food>0){
-        if(this.map.cells[coord[0]][coord[1]].ant.stuck == 2){
-          this._exchange(coord);
-        }else{
-          this.stuck = 1; //Stuck moving to the nest
-        }
-      }else if(this.map.cells[this.i][this.j].pheromone > 0){
-        if(this.map.cells[coord[0]][coord[1]].ant.stuck == 1){
-          this._exchange(coord);
-        }else{
-          this.stuck = 2; // Stuck following pheromones
+        this.map.cells[this.i][this.j].ant = null;
+        this._moveAnt(coord[0], coord[1]);
+        this.map.cells[this.i][this.j].ant = this;
+      }else{
+        if(this.food>0){
+          if(this.map.cells[coord[0]][coord[1]].ant.stuck == 2){
+            this._exchange(coord);
+          }else{
+            this.stuck = 1; //Stuck moving to the nest
+          }
+        }else if(this.map.cells[this.i][this.j].pheromone > 0){
+          if(this.map.cells[coord[0]][coord[1]].ant.stuck == 1){
+            this._exchange(coord);
+          }else{
+            this.stuck = 2; // Stuck following pheromones
+          }
         }
       }
     }
@@ -421,7 +433,6 @@ class MapArea{
 
 class CanvasSimulator{
   constructor(divId){
-
     this.canvasState = Object.freeze({"CREATION":1, "RUNNING":2, "BREAK":3});
     this.divId = divId;
     this.width=200;
@@ -430,17 +441,15 @@ class CanvasSimulator{
     this.intervalMS = 2;
     this.map = new MapArea(this.width, this.height, this.ratio);
 
-
     this.createCanvas(divId);
     this.switchState(this.canvasState.CREATION);
     setInterval(this.draw.bind(this), this.intervalMS);
 
     this.ants = [];
     this.antMax = 100;
+    this.move = null;
 
     this.clickEvent = function(e){
-      console.log(e.clientX)
-      console.log(e.clientY)
       this.addObstacle(e);
     }.bind(this);
   }
@@ -456,16 +465,42 @@ class CanvasSimulator{
   start(){
     $('#'+this.divId).unbind('mousedown');
     this.switchState(this.canvasState.RUNNING);
-    //Réaffichage de la carte
-    this.antCreation = setInterval(this.antCreate.bind(this), this.intervalMS*2);
-    setInterval(this.map.pheromoneUpdate.bind(this.map), this.intervalMS);
+    //Ant moving
+    this.move = setInterval(this.moveAnts.bind(this), this.intervalMS*2);
+  }
+
+  stop(){
+    clearInterval(this.move);
+    this.switchState(this.canvasState.BREAK)
+  }
+
+  resume(){
+    this.start();
+  }
+
+  reset(){
+    this.map = new MapArea(this.width, this.height, this.ratio);
+
+    this.switchState(this.canvasState.CREATION);
+
+    this.ants = [];
+    this.antMax = 100;
+    this.move = null;
+  }
+
+  moveAnts(){
+    for(let i=0;i<this.ants.length;i++){
+      let ant = this.ants[i];
+      ant.move();
+    }
+    this.map.pheromoneUpdate();
+    this.antCreate();
   }
 
   antCreate(){
     if(this.ants.length < this.antMax){
       let ant = new Ant(this.map,10,10,this.ants.length);
       this.ants.push(ant);
-      setInterval(ant.move.bind(ant),this.intervalMS);
     }else{
       clearInterval(this.antCreation);
     }
@@ -496,7 +531,7 @@ class CanvasSimulator{
       });
     }else if(state == this.canvasState.BREAK){
       $('#start').addClass("d-none");
-      $('#reset').addClass("d-none");
+      $('#reset').removeClass("d-none");
       $('#break').addClass("d-none");
       $('#resume').removeClass("d-none");
     }
@@ -511,9 +546,5 @@ class CanvasSimulator{
 
   draw(){
     this.map.draw(this.context);
-  }
-
-  moveAnts(){
-    this.ant.move();
   }
 }
