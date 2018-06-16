@@ -1,11 +1,11 @@
 //TODO For test
 let canvasSimulator = null;
-let debugMoving = null;
 $(document).ready(function(){
-   canvasSimulator = new CanvasSimulator("ants-area");
+  canvasSimulator = new CanvasSimulator("ants-area");
+  $('#start').click(function(){
+    canvasSimulator.start();
+  })
 })
-
-let debug = false;
 
 class MapRemember{
   constructor(map){
@@ -108,10 +108,10 @@ class MapRemember{
 
 class EstimatedNode{
   /**
-   * coord -> coordonées du point
-   * previous -> previous point to get to this point
-   * cost -> cost to get to this points
-   */
+  * coord -> coordonées du point
+  * previous -> previous point to get to this point
+  * cost -> cost to get to this points
+  */
   constructor(coord, previous, cost){
     this.coord = coord;
     this.previous = previous;
@@ -128,6 +128,8 @@ class Ant{
     this.map.cells[i][j].ant = this;
     this.stuck = false;
 
+    this.obstacleFound = false;
+
     this.food = 0;
     this.orientation = Math.random() * 360;
     this.calculated=false;
@@ -139,8 +141,6 @@ class Ant{
   }
 
   move(){
-    this.debug = false;
-    debugMoving[this.id] = true;
     this.stuck = 0;
     let coord = this.checkForFood();
     if(this.food>0){
@@ -166,14 +166,12 @@ class Ant{
     }else{
       if(this.food>0){
         if(this.map.cells[coord[0]][coord[1]].ant.stuck == 2){
-          //console.log("exchange")
           this._exchange(coord);
         }else{
           this.stuck = 1; //Stuck moving to the nest
         }
       }else if(this.map.cells[this.i][this.j].pheromone > 0){
         if(this.map.cells[coord[0]][coord[1]].ant.stuck == 1){
-          //console.log("exchange")
           this._exchange(coord);
         }else{
           this.stuck = 2; // Stuck following pheromones
@@ -232,33 +230,48 @@ class Ant{
     return coord;
   }
 
-  _moveBackToNest2(){ //Move back to the nest using her knowledges of their moves
+  _moveBackToNest2(){ //Move back to the nest using her knowledges of the direction of the nest
     let di = this.deltaI;
     let dj = this.deltaJ;
     this.orientation = Math.atan2(dj,di);
 
     let angle = 1.;
     this.orientation += Math.random()*angle-angle/2; // Variance of rotation of the ant
-    //console.log(this.orientation)
 
-    //let x = this.i+(this.deltaI!=0?this.deltaI/Math.abs(this.deltaI):0);
-    //let y = this.j+(this.deltaJ!=0?this.deltaJ/Math.abs(this.deltaJ):0);
+    return this.getCoordsFromOrientation();
+  }
+
+  _moveBackToNest3(){
+    //if(this.calculated)
+    let di;
+    let dj;
+
+    this.orientation = Math.atan2(dj,di);
+
+    let angle = 1.;
+    this.orientation += Math.random()*angle-angle/2; // Variance of rotation of the ant
 
     return this.getCoordsFromOrientation();
   }
 
   checkForFood(){
     let food = [];
+    let freeFood = [];
     for(let i=-1;i<=1;++i){
       for(let j=-1;j<=1;++j){
         if(this.map.checkCoord([i+this.i,j+this.j])){
           if(this.map.cells[this.i+i][this.j+j].hasFood()){
-            food.push([this.i+i,this.j+j]);
+            if(this.map.cells[this.i+i][this.j+j].hasAnt()){
+              freeFood.push([this.i+i,this.j+j])
+            }else{
+              food.push([this.i+i,this.j+j]);
+            }
           }
         }
       }
     }
-    if(food.lenth > 0){
+
+    if(food.length > 0){
       return food[Math.floor(Math.random()*(food.length))];
     }
     return false;
@@ -286,6 +299,7 @@ class Cell{
     this.food = 0;
     this.pheromone = 0;
     this.pheromoneCoord = null;
+    this.obstacle = false;
   }
 
   hasAnt(){
@@ -296,10 +310,17 @@ class Cell{
     return this.food > 0;
   }
 
+  isObstacle(){
+    return this.obstacle;
+  }
+
   getColor(){
+    if(this.isObstacle()){
+      return "brown";
+    }
     if(this.hasAnt()){
       if(this.ant.hasFood()){
-          return "green";
+        return "green";
       }
       return "black";
     }
@@ -319,7 +340,7 @@ class MapArea{
     this.width = width;
     this.height = height;
     this.init();
-    this.addFood(10, 75, 75);
+    this.addFood(10, 150, 150);
   }
 
   init(){
@@ -341,19 +362,30 @@ class MapArea{
   }
 
   checkCoord(coord){
-    return !( coord[0]>=this.height ||
-              coord[0]<0 ||
-              coord[1]>=this.width ||
-              coord[1]<0);
+    return !(coord[0]>=this.height ||
+      coord[0]<0 ||
+      coord[1]>=this.width ||
+      coord[1]<0);
   }
 
   addFood(radius, ii, jj){
     console.log("Food addition")
     for(let i=-radius;i<radius;++i){
       for(let j=-radius;j<radius;++j){
-        let dist = Math.sqrt(i*i+j*j);
+        let dist = Math.floor(Math.sqrt(i*i+j*j));
         if(dist<radius && this.checkCoord([ii+i,jj+j])){
           this.cells[ii+i][jj+j].food = Math.pow(1/(dist+0.1),0.4); // Avoid infinity
+        }
+      }
+    }
+  }
+
+  addObstacle(radius, ii, jj){
+    for(let i=-radius;i<radius;++i){
+      for(let j=-radius;j<radius;++j){
+        let dist = Math.sqrt(i*i+j*j);
+        if(dist<radius && this.checkCoord([ii+i,jj+j])){
+          this.cells[ii+i][jj+j].obstacle = true;
         }
       }
     }
@@ -373,7 +405,6 @@ class MapArea{
         }
       }
     }
-    //context.fill();
   }
 
   pheromoneUpdate(){
@@ -390,38 +421,88 @@ class MapArea{
 
 class CanvasSimulator{
   constructor(divId){
-    this.width=100;
-    this.height=100;
+
+    this.canvasState = Object.freeze({"CREATION":1, "RUNNING":2, "BREAK":3});
+    this.divId = divId;
+    this.width=200;
+    this.height=200;
     this.ratio=4;
     this.intervalMS = 2;
     this.map = new MapArea(this.width, this.height, this.ratio);
 
-    this.createCanvas(divId);
 
-    //Réaffichage de la carte
-    this.antCreation = setInterval(this.antCreate.bind(this), this.intervalMS*2);
+    this.createCanvas(divId);
+    this.switchState(this.canvasState.CREATION);
     setInterval(this.draw.bind(this), this.intervalMS);
-    setInterval(this.map.pheromoneUpdate.bind(this.map), this.intervalMS);
 
     this.ants = [];
-    debugMoving = []
     this.antMax = 100;
+
+    this.clickEvent = function(e){
+      console.log(e.clientX)
+      console.log(e.clientY)
+      this.addObstacle(e);
+    }.bind(this);
+  }
+
+  addObstacle(e){
+    let x = e.pageX - $('#'+this.divId).offset().left;
+    let y = e.pageY - $('#'+this.divId).offset().top;
+    if(x==this.width)x--;
+    if(y==this.height)y--;
+    this.map.addObstacle(3,parseInt(x/this.ratio),parseInt(y/this.ratio));
+  }
+
+  start(){
+    $('#'+this.divId).unbind('mousedown');
+    this.switchState(this.canvasState.RUNNING);
+    //Réaffichage de la carte
+    this.antCreation = setInterval(this.antCreate.bind(this), this.intervalMS*2);
+    setInterval(this.map.pheromoneUpdate.bind(this.map), this.intervalMS);
   }
 
   antCreate(){
     if(this.ants.length < this.antMax){
       let ant = new Ant(this.map,10,10,this.ants.length);
       this.ants.push(ant);
-      debugMoving.push(true);
       setInterval(ant.move.bind(ant),this.intervalMS);
     }else{
       clearInterval(this.antCreation);
     }
   }
 
+  switchState(state){
+    this.state = state;
+    if(state == this.canvasState.RUNNING){
+      $('#start').addClass("d-none");
+      $('#reset').addClass("d-none");
+      $('#break').removeClass("d-none");
+      $('#resume').addClass("d-none");
+    }else if(state == this.canvasState.CREATION){
+      $('#start').removeClass("d-none");
+      $('#reset').removeClass("d-none");
+      $('#break').addClass("d-none");
+      $('#resume').addClass("d-none");
+      let self = this;
+      $('#'+this.divId).mousedown(function (e) {
+        self.clickEvent(e);
+        $(this).mousemove(function (e) {
+            self.clickEvent(e);
+        });
+      }).mouseup(function () {
+          $(this).unbind('mousemove');
+      }).mouseout(function () {
+          $(this).unbind('mousemove');
+      });
+    }else if(state == this.canvasState.BREAK){
+      $('#start').addClass("d-none");
+      $('#reset').addClass("d-none");
+      $('#break').addClass("d-none");
+      $('#resume').removeClass("d-none");
+    }
+  }
+
   createCanvas(divId){
-    //let canvas = $('#ants-area');
-    //this.context = canvas.getContext("2d");
     let canvas = document.getElementById(divId);
     this.context = canvas.getContext("2d");
     $("#"+divId).attr("width",this.width*this.ratio);
@@ -434,11 +515,5 @@ class CanvasSimulator{
 
   moveAnts(){
     this.ant.move();
-  }
-}
-
-function test() {
-  for(let i=0;i<debugMoving.length;++i){
-    debugMoving[i] = false;
   }
 }
