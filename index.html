@@ -13,23 +13,23 @@
 <body>
   <div class="container">
     <div class="page-header">
-      <h1>Labo 1 - Algo num</h1>
-      <p>Groupe n° 1 , auteurs:</p>
+      <h1>MiniProjet - Algo num - Ant simulator</h1>
+      <p>Author :</p>
       <ul>
-        <li>Raphael Margueron</li>
-        <li>Damian Petroff</li>
         <li>Bastien Wermeille</li>
       </ul>
       <hr>
+      <h2>Aim of the project</h2>
+      <p>This project's main aim is to implement a basic ant simulator and watch complex global system made of a lot of ant. The behaviour of those ants is pretty simple but all together they are stronger.</p>
       <h2>Execution</h2>
-      <p>The execution has been made in multiple steps :</p>
+      <p>The execution has been made through multiple steps :</p>
       <ul>
         <li>Draw map</li>
         <li>Random move for ant</li>
         <li>Going back home with knowing of the terrain</li>
-        <li>Folowwing pheromones to find out some food sources</li>
+        <li>Following pheromones to find out some food sources</li>
         <li>Going back home knowing the direction without taking in account their knowledges of the terrain</li>
-        <li>Modification of pheromone system to use the gradiant</li>
+        <li>Modification of pheromone system to use the gradient</li>
         <li>Improve ant to see at a certain distance</li>
       </ul>
     </div>
@@ -37,14 +37,31 @@
     <button id="break" class="btn btn-standard d-none">Break Simulation</button>
     <button id="resume" class="btn btn-standard d-none">Resume Simulation</button>
     <button id="reset" class="btn btn-warning">Reset Simulation</button>
-    <p>TODO Add: dynamic speed, nb ants, map size</p>
+    <div class="form-group">
+      <label for="nbAnts">Number of ants</label>
+      <input id="nb-ants" type="number" class="form-control" id="nbAnts" placeholder="100" min="1" max="200" value="100">
+    </div>
     <canvas id="ants-area"></canvas>
     <hr>
     <div>
-      <h2>Sources</h2>
+      <h2>Libraries</h2>
+      <p>I used the following libraries in this project :</p>
       <ul>
         <li><a href="https://getbootstrap.com/"></a></li>
         <li><a href="https://jquery.com/"></a></li>
+      </ul>
+      <h2>Scientific resources</h2>
+      <p>Here are some of the most valuable scientific resources I've read.</p>
+      <ul>
+        <li><a href="https://www.mpg.de/5187096/orientation_ants"> accessed 10.05.2018</a></li>
+        <li><a href="http://rspb.royalsocietypublishing.org/content/270/1511/139.short"></a> accessed 10.05.2018</li>
+        <li><a href="https://books.google.ch/books?id=AVP_ts6LSVUC&lpg=PP1&dq=subject:%22Ants%3B+Behavior.%22&hl=fr&pg=PR7&redir_esc=y#v=onepage&q&f=true"></a> accessed 14.05.2018</li>
+        <li><a href="https://fr.wikipedia.org/wiki/Ph%C3%A9romone"></a> accessed 13.05.2018</li>
+      </ul>
+      <h2>Inspiration</h2>
+      <p>My work has been influenced by the following project :</p>
+      <ul>
+        <li><a href="http://www.natureincode.com/code/various/ants.html"></a> accessed 04.06.2018</li>
       </ul>
     </div>
   <div/>

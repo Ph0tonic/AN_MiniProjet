@@ -2,7 +2,10 @@ let canvasSimulator = null;
 $(document).ready(function(){
   canvasSimulator = new CanvasSimulator("ants-area");
   $('#start').click(function(){
-    canvasSimulator.start();
+    let val = parseInt($('#nb-ants').val());
+    if(val>0&&val<201){
+      canvasSimulator.start(val);
+    }
   });
   $('#break').click(function(){
     canvasSimulator.stop();
@@ -149,15 +152,17 @@ class Ant{
 
   _checkForPheromone(){
     let last = this.map.cells[this.i][this.j].pheromone;
-    let current;
+    let current=0;
+    let delta=0;
     let i=false;
     let j=false;
     for (let k = this.i-1; k <= this.i+1; k++) {
       for (let l = this.j-1; l <= this.j+1; l++) {
         if(this.map.checkCoord([k,l])){
           current = this.map.cells[k][l].pheromone;
+          delta = last-current;
           if(current!=0){
-            if (last == 0 && diff < 0 || last != 0 && diff > 0) { //Use gradiant
+            if (last == 0 && delta < 0 || last != 0 && delta > 0) { //Use gradiant
               i = k;
               j = l;
             }
@@ -313,7 +318,8 @@ class CanvasSimulator{
     this.move = null;
   }
 
-  start(){
+  start(maxAnt){
+    this.antMax = maxAnt;
     //Ant moving
     this.switchState(this.canvasState.RUNNING);
     this.move = setInterval(this.moveAnts.bind(this), this.intervalMS*2);
@@ -334,7 +340,7 @@ class CanvasSimulator{
     this.switchState(this.canvasState.CREATION);
 
     this.ants = [];
-    this.antMax = 100;
+    this.antMax = 200;
     this.move = null;
   }
 
@@ -365,7 +371,7 @@ class CanvasSimulator{
       $('#resume').addClass("d-none");
     }else if(state == this.canvasState.CREATION){
       $('#start').removeClass("d-none");
-      $('#reset').removeClass("d-none");
+      $('#reset').addClass("d-none");
       $('#break').addClass("d-none");
       $('#resume').addClass("d-none");
     }else if(state == this.canvasState.BREAK){
