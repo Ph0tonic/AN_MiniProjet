@@ -1,6 +1,6 @@
-let canvasSimulator = null;
+
 $(document).ready(function(){
-  canvasSimulator = new CanvasSimulator("ants-area");
+  let canvasSimulator = new CanvasSimulator("ants-area");
   $('#start').click(function(){
     let val = parseInt($('#nb-ants').val());
     if(val>0&&val<201){
@@ -18,32 +18,18 @@ $(document).ready(function(){
   });
 })
 
-class EstimatedNode{
-  /**
-  * coord -> coordonées du point
-  * previous -> previous point to get to this point
-  * cost -> cost to get to this points
-  */
-  constructor(coord, previous, cost){
-    this.coord = coord;
-    this.previous = previous;
-    this.cost = cost;
-  }
-}
-
+//Représente un fourmi
 class Ant{
   constructor(map, i, j, id){
     this.id = id;
     this.i = i;
     this.j = j;
     this.map = map;
-    this.view = 3;
     this.map.cells[i][j].ant = this;
     this.stuck = false;
 
     this.food = 0;
     this.orientation = Math.random() * 360;
-    this.calculated=false;
 
     this.deltaI=0;
     this.deltaJ=0;
@@ -67,7 +53,6 @@ class Ant{
 
     //Check if dest is free
     if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
-
       this.map.cells[this.i][this.j].ant = null;
       this._moveAnt(coord[0], coord[1]);
       this.map.cells[this.i][this.j].ant = this;
@@ -192,12 +177,18 @@ class Ant{
   }
 }
 
+//Représente une cellule
 class Cell{
   constructor(){
     this.ant = null;
     this.food = 0;
     this.pheromone = 0;
     this.pheromoneCoord = null;
+    this.nest = false;
+  }
+
+  isNest(){
+    return this.nest;
   }
 
   hasAnt(){
@@ -209,6 +200,9 @@ class Cell{
   }
 
   getColor(){
+    if(this.nest){
+      return "orange";
+    }
     if(this.hasAnt()){
       if(this.ant.hasFood()){
         return "green";
@@ -225,12 +219,14 @@ class Cell{
   }
 }
 
+//Stockage de la carte
 class MapArea{
-  constructor(width, height, ratio){
+  constructor(width, height, ratio, nest){
     this.ratio = ratio;
     this.width = width;
     this.height = height;
     this.init();
+    this.cells[nest[0]][nest[1]].nest = true;
     this.addFood(10, 150, 150);
   }
 
@@ -274,7 +270,6 @@ class MapArea{
   draw(context){
     context.fillStyle="#dfe4ea";
     context.fillRect(0, 0, this.ratio*this.width, this.ratio*this.height);
-    //this.draw();
     let color = false;
     for(let i=0;i<this.height;++i){
       for(let j=0;j<this.width;++j){
@@ -299,15 +294,17 @@ class MapArea{
   }
 }
 
+//Gestion du canvas et de la simulation
 class CanvasSimulator{
   constructor(divId){
+    this.nestLocation = [10,10];
     this.canvasState = Object.freeze({"CREATION":1, "RUNNING":2, "BREAK":3});
     this.divId = divId;
     this.width=200;
     this.height=200;
     this.ratio=4;
     this.intervalMS = 5;
-    this.map = new MapArea(this.width, this.height, this.ratio);
+    this.map = new MapArea(this.width, this.height, this.ratio, this.nestLocation);
 
     this.createCanvas(divId);
     this.switchState(this.canvasState.CREATION);
@@ -331,12 +328,11 @@ class CanvasSimulator{
   }
 
   resume(){
-    this.start();
+    this.start(this.antMax);
   }
 
   reset(){
-    this.map = new MapArea(this.width, this.height, this.ratio);
-
+    this.map = new MapArea(this.width, this.height, this.ratio, this.nestLocation);
     this.switchState(this.canvasState.CREATION);
 
     this.ants = [];
@@ -355,7 +351,7 @@ class CanvasSimulator{
 
   antCreate(){
     if(this.ants.length < this.antMax){
-      let ant = new Ant(this.map,10,10,this.ants.length);
+      let ant = new Ant(this.map,this.nestLocation[0],this.nestLocation[1],this.ants.length);
       this.ants.push(ant);
     }else{
       clearInterval(this.antCreation);
