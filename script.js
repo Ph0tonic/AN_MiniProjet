@@ -4,7 +4,7 @@ $(document).ready(function(){
   $('#start').click(function(){
     let val = parseInt($('#nb-ants').val());
     if(val>0&&val<201){
-      canvasSimulator.start(val);
+      canvasSimulator.start(val,$('#with-pheromone').is(':checked'));
     }
   });
   $('#break').click(function(){
@@ -20,13 +20,14 @@ $(document).ready(function(){
 
 //Représente un fourmi
 class Ant{
-  constructor(map, i, j, id){
+  constructor(map, i, j, id, withPheromone){
     this.id = id;
     this.i = i;
     this.j = j;
     this.map = map;
     this.map.cells[i][j].ant = this;
     this.stuck = false;
+    this.withPheromone = withPheromone;
 
     this.food = 0;
     this.orientation = Math.random() * 360;
@@ -40,9 +41,8 @@ class Ant{
     let coord = this._checkForFood();
     if(this.food>0){
       coord = this._moveBackToNest();
-      if(!this.map.cells[coord[0]][coord[1]].hasAnt()){
+      if(!this.map.cells[coord[0]][coord[1]].hasAnt() && this.withPheromone){
         this.map.cells[coord[0]][coord[1]].pheromone = 1;
-        this.map.cells[coord[0]][coord[1]].pheromoneCoord = [this.i,this.j];
       }
     }else if(coord == false){
       coord = this._checkForPheromone();
@@ -183,7 +183,6 @@ class Cell{
     this.ant = null;
     this.food = 0;
     this.pheromone = 0;
-    this.pheromoneCoord = null;
     this.nest = false;
   }
 
@@ -315,8 +314,10 @@ class CanvasSimulator{
     this.move = null;
   }
 
-  start(maxAnt){
+  start(maxAnt, withPheromone){
     this.antMax = maxAnt;
+    this.withPheromone = withPheromone;
+
     //Ant moving
     this.switchState(this.canvasState.RUNNING);
     this.move = setInterval(this.moveAnts.bind(this), this.intervalMS*2);
@@ -328,7 +329,7 @@ class CanvasSimulator{
   }
 
   resume(){
-    this.start(this.antMax);
+    this.start(this.antMax, this.withPheromone);
   }
 
   reset(){
@@ -351,7 +352,7 @@ class CanvasSimulator{
 
   antCreate(){
     if(this.ants.length < this.antMax){
-      let ant = new Ant(this.map,this.nestLocation[0],this.nestLocation[1],this.ants.length);
+      let ant = new Ant(this.map,this.nestLocation[0],this.nestLocation[1],this.ants.length, this.withPheromone);
       this.ants.push(ant);
     }else{
       clearInterval(this.antCreation);
